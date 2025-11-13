@@ -1,0 +1,33 @@
+name: InfoCar Checker
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"  # co 15 minut
+  workflow_dispatch: # możliwość ręcznego uruchomienia
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y chromium-browser chromium-chromedriver
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install selenium
+
+    - name: Run checker
+      env:
+        INFOCAR_LOGIN: ${{ secrets.INFOCAR_LOGIN }}
+        INFOCAR_PASS: ${{ secrets.INFOCAR_PASS }}
+        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+        EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+        EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+      run: |
+        source venv/bin/activate
+        python info_car_monitor.py
