@@ -24,6 +24,7 @@ def send_email(subject, body):
 
 def check_info_car():
     opts = Options()
+    opts.binary_location = "/usr/bin/chromium-browser"
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
