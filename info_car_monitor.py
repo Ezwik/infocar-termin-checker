@@ -1,30 +1,47 @@
-import smtplib
-import ssl
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select
-import time
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import os
+import smtplib
+from email.message import EmailMessage
+import time
 
-# --- dane z GitHub Secrets ---
-INFOCAR_LOGIN = os.environ.get("INFOCAR_LOGIN")
-INFOCAR_PASS = os.environ.get("INFOCAR_PASS")
-EMAIL_SENDER = os.environ.get("EMAIL_SENDER")
-EMAIL_PASS = os.environ.get("EMAIL_PASS")
-EMAIL_RECEIVER = os.environ.get("EMAIL_RECEIVER")
-
+# -----------------------------
+# Funkcja wysyłająca mail
+# -----------------------------
 def send_email(subject, body):
-    """Wysyła e-mail powiadamiający."""
-    message = f"Subject: {subject}\n\n{body}"
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-        server.login(EMAIL_SENDER, EMAIL_PASS)
-        server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, message)
+    EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+    EMAIL_PASS = os.getenv("EMAIL_PASS")  # tutaj hasło aplikacji Gmail
+    EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
 
+    msg = EmailMessage()
+    msg.set_content(body)
+    msg['Subject'] = subject
+    msg['From'] = EMAIL_SENDER
+    msg['To'] = EMAIL_RECEIVER
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(EMAIL_SENDER, EMAIL_PASS)
+            server.send_message(msg)
+        print("✅ Wysłano maila")
+    except Exception as e:
+        print("❌ Błąd wysyłki maila:", e)
+
+# -----------------------------
+# Funkcja główna
+# -----------------------------
 def check_info_car():
+    INFOCAR_EMAIL = os.getenv("INFOCAR_EMAIL")
+    INFOCAR_PASS = os.getenv("INFOCAR_PASS")
+
+    # -----------------------------
+    # Konfiguracja Selenium
+    # -----------------------------
     opts = Options()
-    opts.binary_location = "/usr/bin/chromium-browser"
+    opts.binary_location = "/usr/bin/chromium-browser"  # dla GitHub Actions
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
@@ -32,81 +49,73 @@ def check_info_car():
     driver = webdriver.Chrome(options=opts)
 
     try:
-        print("Otwieram stronę Info-Car...")
+        # 1. Otwórz stronę z terminami
         driver.get("https://info-car.pl/new/prawo-jazdy/sprawdz-wolny-termin")
-        time.sleep(3)
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        print("✅ Strona główna załadowana")
 
-        # kliknięcie "Zaloguj"
-        # Poczekaj, aż strona się w pełni załaduje
-WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        # 2. Kliknij "Akceptuj cookies" jeśli istnieje
+        try:
+            WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Akceptuj')]"))
+            ).click()
+            print("✅ Kliknięto 'Akceptuj cookies'")
+        except:
+            print("ℹ️ Brak banera cookies - pomijam")
 
-# Spróbuj zamknąć baner cookies (jeśli się pojawi)
-try:
-    WebDriverWait(driver, 5).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Akceptuj')]"))
-    ).click()
-    print("✅ Kliknięto 'Akceptuj cookies'")
-except:
-    print("ℹ️ Brak banera cookies - pomijam")
+        # 3. Kliknij "Zaloguj"
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.LINK_TEXT, "Zaloguj"))
+        ).click()
+        print("✅ Kliknięto 'Zaloguj'")
 
-# Poczekaj, aż przycisk 'Zaloguj' będzie widoczny i kliknij
-try:
-    WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.LINK_TEXT, "Zaloguj"))
-    ).click()
-    print("✅ Kliknięto 'Zaloguj'")
-except Exception as e:
-    print("❌ Błąd kliknięcia Zaloguj:", e)
+        # 4. Poczekaj na stronę logowania
+        WebDriverWait(driver, 10).until(EC.url_contains("oauth2/login"))
+        print("✅ Przeniesiono na stronę logowania")
 
-        time.sleep(2)
-
-        # logowanie
-        driver.find_element(By.ID, "username").send_keys(INFOCAR_LOGIN)
+        # 5. Wprowadź dane logowania
+        driver.find_element(By.ID, "username").send_keys(INFOCAR_EMAIL)
         driver.find_element(By.ID, "password").send_keys(INFOCAR_PASS)
-        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        time.sleep(5)
+        driver.find_element(By.XPATH, "//button[contains(text(), 'Zaloguj')]").click()
+        print("✅ Dane logowania wysłane, kliknięto 'Zaloguj'")
 
-        print("Zalogowano, wybieram WORD i egzamin...")
+        # 6. Poczekaj na stronę wyboru WORD i kategorii
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "wordSelector"))
+        )
 
-        # wybór WORD
-        select_word = Select(driver.find_element(By.ID, "wojewodztwo"))
-        select_word.select_by_visible_text("śląskie")
-        time.sleep(2)
-
-        select_word2 = Select(driver.find_element(By.ID, "osrodek"))
-        select_word2.select_by_visible_text("Wojewódzki Ośrodek Ruchu Drogowego w Katowicach")
-        time.sleep(2)
-
-        # wybór rodzaju egzaminu
-        select_exam = Select(driver.find_element(By.ID, "rodzajEgzaminu"))
-        select_exam.select_by_visible_text("Egzamin praktyczny")
+        # 7. Wybierz WORD Katowice
+        driver.find_element(By.XPATH, "//option[contains(text(), 'Katowice')]").click()
         time.sleep(1)
 
-        # wybór kategorii
-        select_cat = Select(driver.find_element(By.ID, "kategoria"))
-        select_cat.select_by_visible_text("C")
-        time.sleep(2)
+        # 8. Wybierz kategorię C
+        driver.find_element(By.XPATH, "//option[contains(text(), 'C')]").click()
+        time.sleep(1)
 
-        # kliknięcie "Szukaj terminów"
-        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-        time.sleep(5)
+        # 9. Wybierz egzamin praktyczny
+        driver.find_element(By.XPATH, "//option[contains(text(), 'Praktyka')]").click()
+        time.sleep(1)
 
-        html = driver.page_source
-        if "Brak wolnych terminów" in html:
-            print("❌ Brak wolnych terminów w Katowicach (C, praktyka).")
-        else:
-            print("✅ ZNALEZIONO TERMIN!")
-            send_email(
-                "🚗 Info-Car – znaleziono termin!",
-                "Pojawił się wolny termin w WORD Katowice (praktyka, kategoria C)!\nSprawdź: https://info-car.pl/new/prawo-jazdy/sprawdz-wolny-termin"
-            )
+        # 10. Sprawdź dostępność terminów
+        # Zakładamy, że terminów jest lista w tabeli lub divach z określoną klasą
+        try:
+            wolne_terminy = driver.find_elements(By.XPATH, "//div[contains(@class, 'termin')]")
+            if wolne_terminy:
+                send_email("✅ Info-Car: Wolny termin!", f"Znaleziono termin! Liczba: {len(wolne_terminy)}")
+            else:
+                print("ℹ️ Brak wolnych terminów")
+        except Exception as e:
+            print("❌ Błąd przy sprawdzaniu terminów:", e)
 
     except Exception as e:
-        print("Błąd:", e)
+        print("❌ Wystąpił błąd:", e)
         send_email("❗ Błąd w InfoCarChecker", str(e))
 
     finally:
         driver.quit()
 
+# -----------------------------
+# Uruchomienie funkcji
+# -----------------------------
 if __name__ == "__main__":
     check_info_car()
