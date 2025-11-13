@@ -22,12 +22,12 @@ jobs:
         pip install selenium
 
     - name: Run checker
-      env:
-        INFOCAR_LOGIN: ${{ secrets.INFOCAR_LOGIN }}
-        INFOCAR_PASS: ${{ secrets.INFOCAR_PASS }}
-        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
-        EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
-        EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+     env:
+  INFOCAR_EMAIL: ${{ secrets.INFOCAR_EMAIL }}
+  INFOCAR_PASS: ${{ secrets.INFOCAR_PASS }}
+  EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+  EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+  EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         CHROME_BIN: /usr/bin/chromium-browser
         CHROMEDRIVER_PATH: /usr/lib/chromium-browser/chromedriver
       run: |
