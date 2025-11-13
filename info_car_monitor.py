@@ -37,7 +37,27 @@ def check_info_car():
         time.sleep(3)
 
         # kliknięcie "Zaloguj"
-        driver.find_element(By.LINK_TEXT, "Zaloguj").click()
+        # Poczekaj, aż strona się w pełni załaduje
+WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+# Spróbuj zamknąć baner cookies (jeśli się pojawi)
+try:
+    WebDriverWait(driver, 5).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Akceptuj')]"))
+    ).click()
+    print("✅ Kliknięto 'Akceptuj cookies'")
+except:
+    print("ℹ️ Brak banera cookies - pomijam")
+
+# Poczekaj, aż przycisk 'Zaloguj' będzie widoczny i kliknij
+try:
+    WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.LINK_TEXT, "Zaloguj"))
+    ).click()
+    print("✅ Kliknięto 'Zaloguj'")
+except Exception as e:
+    print("❌ Błąd kliknięcia Zaloguj:", e)
+
         time.sleep(2)
 
         # logowanie
